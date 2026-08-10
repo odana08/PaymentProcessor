@@ -1,0 +1,18 @@
+package org.example.service;
+
+import org.example.repo.PaymentLog;
+import org.example.repo.PaymentRepository;
+
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+
+    public static void main(String[] args) {
+        PaymentRepository paymentRepository = new PaymentLog();
+        PaymentProcessor paymentProcessor = new PaymentProcessor(List.of(new DomesticFeeRule(), new InternationalFeeRule(), new ChequeFeeRule()), List.of(new EmailNotificationSender(), new SMSNotificationSender()), paymentRepository);
+
+        ConsoleApplication application = new ConsoleApplication(new Scanner(System.in), System.out, paymentProcessor, paymentRepository);
+        application.run();
+    }
+}
