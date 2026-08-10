@@ -100,6 +100,48 @@ Important extension points:
   Spring Boot persistence later.
 - `PaymentProcessor` coordinates calculation, persistence, and notification.
 
+## SOLID principles
+
+### Single Responsibility Principle
+
+Each class has one main responsibility:
+
+- `DomesticFeeRule`, `InternationalFeeRule`, and `ChequeFeeRule` calculate fees.
+- `EmailNotificationSender` and `SMSNotificationSender` send notifications.
+- `PaymentLog` stores and retrieves payment records in memory.
+- `PaymentProcessor` coordinates the payment-processing workflow.
+- `ConsoleApplication` handles console input and output.
+
+### Open/Closed Principle
+
+`PaymentProcessor` is open to new behavior but does not need to be modified for
+each new implementation. A new payment calculation can implement `FeeRule`, and
+a new notification channel can implement `NotificationSender`. The implementations
+are supplied to the processor through its constructor.
+
+### Liskov Substitution Principle
+
+Implementations can be used wherever their interface is expected:
+
+- `DomesticFeeRule`, `InternationalFeeRule`, and `ChequeFeeRule` are substitutable
+  as `FeeRule` instances.
+- `EmailNotificationSender` and `SMSNotificationSender` are substitutable as
+  `NotificationSender` instances.
+- `PaymentLog` is usable as a `PaymentRepository`, and a future database-backed
+  repository can replace it without changing repository clients.
+
+### Interface Segregation Principle
+
+`FeeRule` and `NotificationSender` are small, focused interfaces. Fee-rule
+implementations only provide payment-type and fee-calculation behavior, while
+notification implementations only provide channel and sending behavior.
+
+### Dependency Inversion Principle
+
+`PaymentProcessor` depends on the abstractions `FeeRule`, `NotificationSender`,
+and `PaymentRepository` instead of depending directly on concrete fee rules,
+senders, or `PaymentLog`. `Main` selects and injects the concrete implementations.
+
 ## Extending the project
 
 To add a payment type, implement `FeeRule` and include the new instance in the
