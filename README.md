@@ -6,9 +6,18 @@ and sends a notification through the payment's selected channel.
 The project demonstrates a rule-based design: fee calculations and notification
 channels can be extended without changing the central `PaymentProcessor`.
 
+## Console application
+
+Run `org.example.service.Main` from your IDE to open the interactive console.
+The menu supports processing a payment, listing all payments, finding a payment
+by its UUID reference, and deleting a payment.
+
 ## Features
 
 - Calculates fees for domestic, international, and cheque payments
+- Assigns a unique UUID reference to every payment
+- Supports `JOD` and `USD` currencies
+- Tracks each payment from `CREATED` to `PROCESSED`
 - Selects fee rules by payment type
 - Sends email or SMS notifications
 - Stores processed payments in an in-memory log
@@ -17,7 +26,7 @@ channels can be extended without changing the central `PaymentProcessor`.
 
 ## Fee rules
 
-All monetary values are represented as whole cents using `long`.
+All monetary values are represented in cents using `BigDecimal`.
 
 | Payment type | Fee |
 | --- | ---: |
@@ -34,11 +43,15 @@ Supported notification channels are `EMAIL` and `SMS`.
 Create the available rules and senders, then pass them to a `PaymentProcessor`:
 
 ```java
-import org.example.*;
+import org.example.model.*;
+import org.example.repo.PaymentLog;
+import org.example.repo.PaymentRepository;
+import org.example.service.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
-PaymentLog paymentLog = new PaymentLog();
+PaymentRepository paymentRepository = new PaymentLog();
 
 PaymentProcessor processor = new PaymentProcessor(
     List.of(
@@ -50,19 +63,22 @@ PaymentProcessor processor = new PaymentProcessor(
         new EmailNotificationSender(),
         new SMSNotificationSender()
     ),
-    paymentLog
+    paymentRepository
 );
 
 Payment payment = new Payment(
     new PaymentType("INTERNATIONAL_FEE"),
-    25_000,
+    new BigDecimal("25000"),
+    Currency.JOD,
     new NotificationChannel("EMAIL")
 );
 
 PaymentRecord record = processor.process(payment);
 
 System.out.println(record.getFeeInCents()); // 500
-System.out.println(paymentLog.getRecords().size()); // 1
+System.out.println(payment.getReference()); // unique UUID
+System.out.println(payment.getStatus()); // PROCESSED
+System.out.println(paymentRepository.findAll().size()); // 1
 ```
 
 Processing follows this sequence:
@@ -71,13 +87,18 @@ Processing follows this sequence:
 2. Calculate the fee.
 3. Create and save a `PaymentRecord`.
 4. Find the selected notification sender and send the notification.
-5. Return the payment record.
+5. Mark the payment as `PROCESSED` after the notification succeeds and persist
+   the updated record.
+6. Return the payment record.
 
 Important extension points:
 
 - `FeeRule` defines a supported payment type and its fee calculation.
 - `NotificationSender` defines a supported channel and how notifications are sent.
-- `PaymentProcessor` coordinates calculation, logging, and notification.
+- `PaymentRepository` abstracts payment-record persistence. `PaymentLog` is the
+  current in-memory implementation; another implementation can be added for
+  Spring Boot persistence later.
+- `PaymentProcessor` coordinates calculation, persistence, and notification.
 
 ## Extending the project
 
