@@ -9,7 +9,12 @@ import org.example.repo.PaymentRepository;
 
 import java.io.PrintStream;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.UUID;
 
 public class ConsoleApplication {
@@ -29,33 +34,31 @@ public class ConsoleApplication {
 
     public void run() {
         output.println("Fee Calculator");
-
-        boolean running = true;
-        while (running && scanner.hasNextLine()) {
+        while (true) {
             printMenu();
-            String option = scanner.nextLine().trim();
+            String option = nextLine();
+            if (option == null || choiceIndex(option).equals("0")) {
+                break;
+            }
 
-            if (option.equals("1")) {
-                processPayment();
-            } else if (option.equals("2")) {
-                listPayments();
-            } else if (option.equals("3")) {
-                findPayment();
-            } else if (option.equals("4")) {
-                deletePayment();
-            } else if (option.equals("0")) {
-                running = false;
-            } else {
-                output.println("Invalid option. Please try again.");
+            try {
+                switch (choiceIndex(option)) {
+                    case "1" -> processPayment();
+                    case "2" -> listPayments();
+                    case "3" -> findPayment();
+                    case "4" -> deletePayment();
+                    default -> output.println("Invalid option. Please select a menu number.");
+                }
+            } catch (RuntimeException exception) {
+                output.println("The operation could not be completed. Please try again.");
             }
         }
-
         output.println("Goodbye.");
     }
 
     private void printMenu() {
         output.println();
-        output.println("1. Process payment");
+        output.println("1. Transfer payment");
         output.println("2. List payments");
         output.println("3. Find payment by reference");
         output.println("4. Delete payment by reference");
@@ -64,87 +67,186 @@ public class ConsoleApplication {
     }
 
     private void processPayment() {
-        try {
-            output.print("Payment type (DOMESTIC_FEE, INTERNATIONAL_FEE, CHEQUE_FEE): ");
-            PaymentType type = new PaymentType(readRequiredLine());
-
-            output.print("Amount in cents: ");
-            BigDecimal amount = new BigDecimal(readRequiredLine());
-            if (amount.signum() <= 0) {
-                throw new IllegalArgumentException("Amount must be greater than zero");
-            }
-
-            output.print("Currency (JOD, USD): ");
-            Currency currency = Currency.valueOf(readRequiredLine().toUpperCase());
-
-            output.print("Notification channel (EMAIL, SMS): ");
-            NotificationChannel channel = new NotificationChannel(readRequiredLine().toUpperCase());
-
-            Payment payment = new Payment(type, amount, currency, channel);
-            PaymentRecord record = paymentProcessor.process(payment);
-
-            output.println("Payment processed successfully.");
-            printRecord(record);
-        } catch (IllegalArgumentException exception) {
-            output.println("Could not process payment: " + exception.getMessage());
-        }
-    }
-
-    private String readRequiredLine() {
-        if (!scanner.hasNextLine()) {
-            throw new IllegalArgumentException("Input is required");
-        }
-
-        String value = scanner.nextLine().trim();
-        if (value.isEmpty()) {
-            throw new IllegalArgumentException("Input is required");
-        }
-        return value;
-    }
-
-    private void listPayments() {
-        if (paymentRepository.findAll().isEmpty()) {
-            output.println("No payments found.");
+        List<PaymentType> types = paymentProcessor.getAvailablePaymentTypes();
+        if (types.isEmpty()) {
+            output.println("No payment types are available.");
             return;
         }
 
-        for (PaymentRecord record : paymentRepository.findAll()) {
+        PaymentType type = chooseOne("Payment type", types);
+        if (type == null) return;
+
+        BigDecimal amount = readPositiveAmount();
+        if (amount == null) return;
+
+        Currency currency = chooseCurrency();
+        if (currency == null) return;
+
+        List<NotificationChannel> channels = chooseChannels();
+        if (channels == null) return;
+
+        try {
+            PaymentRecord record = paymentProcessor.process(new Payment(type, amount, currency, channels));
+            output.println("Payment processed successfully.");
             printRecord(record);
+        } catch (RuntimeException exception) {
+            output.println("Could not process payment. Please check the entered details and try again.");
         }
+    }
+
+    private <T> T chooseOne(String label, List<T> options) {
+        while (true) {
+            output.println(label + ":");
+            for (int i = 0; i < options.size(); i++) {
+                output.println((i + 1) + ". " + displayOption(options.get(i)));
+            }
+            output.print("Select an index: ");
+            String value = nextLine();
+            if (value == null) return null;
+            Integer index = parseIndex(value, options.size());
+            if (index != null) return options.get(index);
+            output.println(label + " not available. Please select a listed index.");
+        }
+    }
+
+    private BigDecimal readPositiveAmount() {
+        while (true) {
+            output.print("Amount in cents: ");
+            String value = nextLine();
+            if (value == null) return null;
+            try {
+                BigDecimal amount = new BigDecimal(value);
+                if (amount.signum() > 0) return amount;
+            } catch (NumberFormatException ignored) {
+                // The friendly validation message below is enough for a console user.
+            }
+            output.println("Invalid amount. Enter a number greater than zero.");
+        }
+    }
+
+    private Currency chooseCurrency() {
+        List<Currency> currencies = Arrays.asList(Currency.values());
+        while (true) {
+            output.println("Currency:");
+            for (int i = 0; i < currencies.size(); i++) {
+                output.println((i + 1) + ". " + currencies.get(i));
+            }
+            output.print("Select an index: ");
+            String value = nextLine();
+            if (value == null) return null;
+            Integer index = parseIndex(value, currencies.size());
+            if (index != null) return currencies.get(index);
+            output.println("Currency not available. Please select a listed index.");
+        }
+    }
+
+    private List<NotificationChannel> chooseChannels() {
+        List<NotificationChannel> options = paymentProcessor.getAvailableNotificationChannels();
+        if (options.isEmpty()) {
+            output.println("No notification channels are available.");
+            return null;
+        }
+        while (true) {
+            output.println("Notification options (select one or more):");
+            for (int i = 0; i < options.size(); i++) {
+                output.println((i + 1) + ". " + options.get(i));
+            }
+            output.print("Enter indexes separated by commas: ");
+            String value = nextLine();
+            if (value == null) return null;
+
+            Set<Integer> indexes = new LinkedHashSet<>();
+            boolean valid = !value.isBlank();
+            for (String part : value.split(",")) {
+                Integer index = parseIndex(part.trim(), options.size());
+                if (index == null) {
+                    valid = false;
+                    break;
+                }
+                indexes.add(index);
+            }
+            if (valid) {
+                List<NotificationChannel> selected = new ArrayList<>();
+                indexes.forEach(index -> selected.add(options.get(index)));
+                return selected;
+            }
+            output.println("Notification option not available. Please use listed indexes.");
+        }
+    }
+
+    private Integer parseIndex(String value, int size) {
+        try {
+            int index = Integer.parseInt(choiceIndex(value)) - 1;
+            return index >= 0 && index < size ? index : null;
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private String choiceIndex(String value) {
+        String trimmed = value.trim();
+        int separator = 0;
+        while (separator < trimmed.length() && Character.isDigit(trimmed.charAt(separator))) {
+            separator++;
+        }
+        return trimmed.substring(0, separator);
+    }
+
+    private String displayOption(Object option) {
+        if (option instanceof PaymentType paymentType) {
+            return paymentType.getName().replaceFirst("_FEE$", "");
+        }
+        return option.toString();
+    }
+
+    private String nextLine() {
+        return scanner.hasNextLine() ? scanner.nextLine().trim() : null;
+    }
+
+    private void listPayments() {
+        List<PaymentRecord> records = paymentRepository.findAll();
+        if (records.isEmpty()) {
+            output.println("No payments found.");
+            return;
+        }
+        records.forEach(this::printRecord);
     }
 
     private void findPayment() {
-        try {
-            output.print("Payment reference: ");
-            UUID reference = UUID.fromString(readRequiredLine());
-            paymentRepository.findByReference(reference)
-                    .ifPresentOrElse(this::printRecord, () -> output.println("Payment not found."));
-        } catch (IllegalArgumentException exception) {
-            output.println("Invalid payment reference.");
-        }
+        UUID reference = readReference();
+        if (reference == null) return;
+        paymentRepository.findByReference(reference)
+                .ifPresentOrElse(this::printRecord, () -> output.println("Payment not found."));
     }
 
     private void deletePayment() {
-        try {
+        UUID reference = readReference();
+        if (reference == null) return;
+        if (paymentRepository.findByReference(reference).isEmpty()) {
+            output.println("Payment not found.");
+            return;
+        }
+        paymentRepository.deleteByReference(reference);
+        output.println("Payment deleted.");
+    }
+
+    private UUID readReference() {
+        while (true) {
             output.print("Payment reference: ");
-            UUID reference = UUID.fromString(readRequiredLine());
-
-            if (paymentRepository.findByReference(reference).isEmpty()) {
-                output.println("Payment not found.");
-                return;
+            String value = nextLine();
+            if (value == null) return null;
+            try {
+                return UUID.fromString(value);
+            } catch (IllegalArgumentException exception) {
+                output.println("Invalid payment reference. Please try again.");
             }
-
-            paymentRepository.deleteByReference(reference);
-            output.println("Payment deleted.");
-        } catch (IllegalArgumentException exception) {
-            output.println("Invalid payment reference.");
         }
     }
 
     private void printRecord(PaymentRecord record) {
         Payment payment = record.getPayment();
         output.println("Reference: " + payment.getReference()
-                + ", Type: " + payment.getType()
+                + ", Type: " + displayOption(payment.getType())
                 + ", Amount: " + payment.getAmountInCents()
                 + ", Currency: " + payment.getCurrency()
                 + ", Fee: " + record.getFeeInCents()

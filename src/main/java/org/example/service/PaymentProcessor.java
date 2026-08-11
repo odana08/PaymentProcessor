@@ -3,7 +3,6 @@ package org.example.service;
 import org.example.model.NotificationChannel;
 import org.example.model.Payment;
 import org.example.model.PaymentRecord;
-import org.example.model.PaymentType;
 import org.example.repo.PaymentRepository;
 
 import java.math.BigDecimal;
@@ -11,31 +10,35 @@ import java.util.List;
 
 public class PaymentProcessor {
 
-    private final List<FeeRule> feeRules;
+    private final FeeCalculator feeCalculator;
     private final List<NotificationSender> notificationSenders;
     private final PaymentRepository paymentRepository;
 
     public PaymentProcessor(List<FeeRule> feeRules, List<NotificationSender> notificationSenders,
                             PaymentRepository paymentRepository) {
 
-        this.feeRules = feeRules;
-        this.notificationSenders = notificationSenders;
+        this(new FeeCalculator(feeRules), notificationSenders, paymentRepository);
+    }
+
+    public PaymentProcessor(FeeCalculator feeCalculator, List<NotificationSender> notificationSenders,
+                            PaymentRepository paymentRepository) {
+
+        this.feeCalculator = feeCalculator;
+        this.notificationSenders = List.copyOf(notificationSenders);
         this.paymentRepository = paymentRepository;
     }
 
     public PaymentRecord process(Payment payment) {
 
-        FeeRule feeRule = findFeeRule(payment.getType());
-
-        BigDecimal fee = feeRule.calculateFee(payment);
+        BigDecimal fee = feeCalculator.calculateFee(payment);
 
         PaymentRecord paymentRecord = new PaymentRecord(payment, fee);
 
         paymentRepository.save(paymentRecord);
 
-        NotificationSender sender = findNotificationSender(payment.getNotificationChannel());
-
-        sender.send(paymentRecord);
+        for (NotificationChannel channel : payment.getNotificationChannels()) {
+            findNotificationSender(channel).send(paymentRecord);
+        }
 
         payment.markAsProcessed();
         paymentRepository.update(paymentRecord);
@@ -43,28 +46,19 @@ public class PaymentProcessor {
         return paymentRecord;
     }
 
-    private FeeRule findFeeRule(PaymentType paymentType) {
+    public List<org.example.model.PaymentType> getAvailablePaymentTypes() {
+        return feeCalculator.getAvailableTypes();
+    }
 
-        for (FeeRule rule : feeRules) {
-
-            if (rule.supportedType().getName().equals(paymentType.getName())) {
-                return rule;
-            }
-        }
-
-        throw new IllegalArgumentException("Unsupported payment type: " + paymentType.getName()
-        );
+    public List<NotificationChannel> getAvailableNotificationChannels() {
+        return notificationSenders.stream().map(NotificationSender::supportedChannel).toList();
     }
 
     private NotificationSender findNotificationSender(NotificationChannel channel) {
-
-        for (NotificationSender sender : notificationSenders) {
-
-            if (sender.supportedChannel().getName().equals(channel.getName())) {
-                return sender;
-            }
-        }
-
-        throw new IllegalArgumentException("Unsupported notification channel: " + channel.getName());
+        return notificationSenders.stream()
+                .filter(sender -> sender.supportedChannel().getName().equals(channel.getName()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Unsupported notification channel: " + channel.getName()));
     }
 }

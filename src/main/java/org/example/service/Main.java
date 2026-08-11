@@ -10,7 +10,16 @@ public class Main {
 
     public static void main(String[] args) {
         PaymentRepository paymentRepository = new PaymentLog();
-        PaymentProcessor paymentProcessor = new PaymentProcessor(List.of(new DomesticFeeRule(), new InternationalFeeRule(), new ChequeFeeRule()), List.of(new EmailNotificationSender(), new SMSNotificationSender()), paymentRepository);
+        FeeCalculator feeCalculator = new FeeCalculator(
+                new DomesticFeeRuleCreator(),
+                new InternationalFeeRuleCreator(),
+                new ChequeFeeRuleCreator()
+        );
+        PaymentProcessor paymentProcessor = new PaymentProcessor(
+                feeCalculator,
+                List.of(new EmailNotificationSender(), new SMSNotificationSender()),
+                paymentRepository
+        );
 
         ConsoleApplication application = new ConsoleApplication(new Scanner(System.in), System.out, paymentProcessor, paymentRepository);
         application.run();

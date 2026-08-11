@@ -118,6 +118,30 @@ class PaymentProcessorTest {
         verify(repository, never()).update(org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    void givenMultipleNotificationChannels_whenPaymentProcessed_thenSendsThroughAllSelectedChannels() {
+        Payment payment = new Payment(
+                new PaymentType("DOMESTIC_FEE"),
+                new BigDecimal("10000"),
+                Currency.JOD,
+                List.of(new NotificationChannel("EMAIL"), new NotificationChannel("SMS"))
+        );
+        FeeRule rule = feeRuleFor("DOMESTIC_FEE");
+        NotificationSender emailSender = senderFor("EMAIL");
+        NotificationSender smsSender = senderFor("SMS");
+        PaymentRepository repository = mock(PaymentRepository.class);
+        when(rule.calculateFee(payment)).thenReturn(new BigDecimal("150"));
+        PaymentProcessor processor = new PaymentProcessor(
+                List.of(rule), List.of(emailSender, smsSender), repository
+        );
+
+        PaymentRecord result = processor.process(payment);
+
+        verify(emailSender).send(result);
+        verify(smsSender).send(result);
+        assertEquals(PaymentStatus.PROCESSED, payment.getStatus());
+    }
+
     private Payment payment(String type, String channel) {
         return new Payment(
                 new PaymentType(type),
