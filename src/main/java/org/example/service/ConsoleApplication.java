@@ -11,10 +11,8 @@ import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
 import java.util.UUID;
 
 public class ConsoleApplication {
@@ -118,7 +116,6 @@ public class ConsoleApplication {
                 BigDecimal amount = new BigDecimal(value);
                 if (amount.signum() > 0) return amount;
             } catch (NumberFormatException ignored) {
-                // The friendly validation message below is enough for a console user.
             }
             output.println("Invalid amount. Enter a number greater than zero.");
         }
@@ -155,7 +152,7 @@ public class ConsoleApplication {
             String value = nextLine();
             if (value == null) return null;
 
-            Set<Integer> indexes = new LinkedHashSet<>();
+            List<Integer> indexes = new ArrayList<>();
             boolean valid = !value.isBlank();
             for (String part : value.split(",")) {
                 Integer index = parseIndex(part.trim(), options.size());
@@ -163,11 +160,15 @@ public class ConsoleApplication {
                     valid = false;
                     break;
                 }
-                indexes.add(index);
+                if (!indexes.contains(index)) {
+                    indexes.add(index);
+                }
             }
             if (valid) {
                 List<NotificationChannel> selected = new ArrayList<>();
-                indexes.forEach(index -> selected.add(options.get(index)));
+                for (Integer index : indexes) {
+                    selected.add(options.get(index));
+                }
                 return selected;
             }
             output.println("Notification option not available. Please use listed indexes.");
@@ -209,7 +210,9 @@ public class ConsoleApplication {
             output.println("No payments found.");
             return;
         }
-        records.forEach(this::printRecord);
+        for (PaymentRecord record : records) {
+            printRecord(record);
+        }
     }
 
     private void findPayment() {

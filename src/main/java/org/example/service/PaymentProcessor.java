@@ -6,6 +6,7 @@ import org.example.model.PaymentRecord;
 import org.example.repo.PaymentRepository;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 public class PaymentProcessor {
@@ -51,14 +52,20 @@ public class PaymentProcessor {
     }
 
     public List<NotificationChannel> getAvailableNotificationChannels() {
-        return notificationSenders.stream().map(NotificationSender::supportedChannel).toList();
+        List<NotificationChannel> channels = new ArrayList<>();
+        for (NotificationSender sender : notificationSenders) {
+            channels.add(sender.supportedChannel());
+        }
+        return List.copyOf(channels);
     }
 
     private NotificationSender findNotificationSender(NotificationChannel channel) {
-        return notificationSenders.stream()
-                .filter(sender -> sender.supportedChannel().getName().equals(channel.getName()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Unsupported notification channel: " + channel.getName()));
+        for (NotificationSender sender : notificationSenders) {
+            if (sender.supportedChannel().getName().equals(channel.getName())) {
+                return sender;
+            }
+        }
+
+        throw new IllegalArgumentException("Unsupported notification channel: " + channel.getName());
     }
 }

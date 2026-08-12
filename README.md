@@ -75,10 +75,10 @@ Payment payment = new Payment(
 
 PaymentRecord record = processor.process(payment);
 
-System.out.println(record.getFeeInCents()); // 500
-System.out.println(payment.getReference()); // unique UUID
-System.out.println(payment.getStatus()); // PROCESSED
-System.out.println(paymentRepository.findAll().size()); // 1
+System.out.println(record.getFeeInCents());
+System.out.println(payment.getReference());
+System.out.println(payment.getStatus());
+System.out.println(paymentRepository.findAll().size());
 ```
 
 Processing follows this sequence:

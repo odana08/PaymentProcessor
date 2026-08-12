@@ -1,8 +1,10 @@
 package org.example.service;
 
 import org.example.model.Payment;
+import org.example.model.PaymentType;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 public class FeeCalculator {
@@ -10,10 +12,11 @@ public class FeeCalculator {
     private final List<FeeRuleCreator> feeRuleCreators;
 
     public FeeCalculator(List<FeeRule> feeRules) {
-        this.feeRuleCreators = feeRules.stream()
-                .map(RegisteredFeeRuleCreator::new)
-                .map(creator -> (FeeRuleCreator) creator)
-                .toList();
+        List<FeeRuleCreator> creators = new ArrayList<>();
+        for (FeeRule feeRule : feeRules) {
+            creators.add(new RegisteredFeeRuleCreator(feeRule));
+        }
+        this.feeRuleCreators = List.copyOf(creators);
     }
 
     public FeeCalculator(FeeRuleCreator... feeRuleCreators) {
@@ -21,16 +24,21 @@ public class FeeCalculator {
     }
 
     public BigDecimal calculateFee(Payment payment) {
-        return feeRuleCreators.stream()
-                .filter(creator -> creator.supportedType().getName().equals(payment.getType().getName()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Unsupported payment type: " + payment.getType().getName()))
-                .calculateFee(payment);
+        for (FeeRuleCreator creator : feeRuleCreators) {
+            if (creator.supportedType().getName().equals(payment.getType().getName())) {
+                return creator.calculateFee(payment);
+            }
+        }
+
+        throw new IllegalArgumentException("Unsupported payment type: " + payment.getType().getName());
     }
 
-    public List<org.example.model.PaymentType> getAvailableTypes() {
-        return feeRuleCreators.stream().map(FeeRuleCreator::supportedType).toList();
+    public List<PaymentType> getAvailableTypes() {
+        List<PaymentType> paymentTypes = new ArrayList<>();
+        for (FeeRuleCreator creator : feeRuleCreators) {
+            paymentTypes.add(creator.supportedType());
+        }
+        return List.copyOf(paymentTypes);
     }
 
     private static final class RegisteredFeeRuleCreator extends FeeRuleCreator {
