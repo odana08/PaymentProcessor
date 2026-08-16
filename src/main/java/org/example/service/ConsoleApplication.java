@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.UUID;
 
@@ -72,16 +73,24 @@ public class ConsoleApplication {
         }
 
         PaymentType type = chooseOne("Payment type", types);
-        if (type == null) return;
+        if (type == null) {
+            return;
+        }
 
         BigDecimal amount = readPositiveAmount();
-        if (amount == null) return;
+        if (amount == null) {
+            return;
+        }
 
         Currency currency = chooseCurrency();
-        if (currency == null) return;
+        if (currency == null) {
+            return;
+        }
 
         List<NotificationChannel> channels = chooseChannels();
-        if (channels == null) return;
+        if (channels == null) {
+            return;
+        }
 
         try {
             PaymentRecord record = paymentProcessor.process(new Payment(type, amount, currency, channels));
@@ -100,9 +109,13 @@ public class ConsoleApplication {
             }
             output.print("Select an index: ");
             String value = nextLine();
-            if (value == null) return null;
+            if (value == null) {
+                return null;
+            }
             Integer index = parseIndex(value, options.size());
-            if (index != null) return options.get(index);
+            if (index != null) {
+                return options.get(index);
+            }
             output.println(label + " not available. Please select a listed index.");
         }
     }
@@ -111,10 +124,14 @@ public class ConsoleApplication {
         while (true) {
             output.print("Amount in cents: ");
             String value = nextLine();
-            if (value == null) return null;
+            if (value == null) {
+                return null;
+            }
             try {
                 BigDecimal amount = new BigDecimal(value);
-                if (amount.signum() > 0) return amount;
+                if (amount.signum() > 0) {
+                    return amount;
+                }
             } catch (NumberFormatException ignored) {
             }
             output.println("Invalid amount. Enter a number greater than zero.");
@@ -130,9 +147,13 @@ public class ConsoleApplication {
             }
             output.print("Select an index: ");
             String value = nextLine();
-            if (value == null) return null;
+            if (value == null) {
+                return null;
+            }
             Integer index = parseIndex(value, currencies.size());
-            if (index != null) return currencies.get(index);
+            if (index != null) {
+                return currencies.get(index);
+            }
             output.println("Currency not available. Please select a listed index.");
         }
     }
@@ -150,7 +171,9 @@ public class ConsoleApplication {
             }
             output.print("Enter indexes separated by commas: ");
             String value = nextLine();
-            if (value == null) return null;
+            if (value == null) {
+                return null;
+            }
 
             List<Integer> indexes = new ArrayList<>();
             boolean valid = !value.isBlank();
@@ -178,7 +201,10 @@ public class ConsoleApplication {
     private Integer parseIndex(String value, int size) {
         try {
             int index = Integer.parseInt(choiceIndex(value)) - 1;
-            return index >= 0 && index < size ? index : null;
+            if (index >= 0 && index < size) {
+                return index;
+            }
+            return null;
         } catch (NumberFormatException exception) {
             return null;
         }
@@ -201,7 +227,10 @@ public class ConsoleApplication {
     }
 
     private String nextLine() {
-        return scanner.hasNextLine() ? scanner.nextLine().trim() : null;
+        if (scanner.hasNextLine()) {
+            return scanner.nextLine().trim();
+        }
+        return null;
     }
 
     private void listPayments() {
@@ -217,14 +246,22 @@ public class ConsoleApplication {
 
     private void findPayment() {
         UUID reference = readReference();
-        if (reference == null) return;
-        paymentRepository.findByReference(reference)
-                .ifPresentOrElse(this::printRecord, () -> output.println("Payment not found."));
+        if (reference == null) {
+            return;
+        }
+        Optional<PaymentRecord> record = paymentRepository.findByReference(reference);
+        if (record.isPresent()) {
+            printRecord(record.get());
+        } else {
+            output.println("Payment not found.");
+        }
     }
 
     private void deletePayment() {
         UUID reference = readReference();
-        if (reference == null) return;
+        if (reference == null) {
+            return;
+        }
         if (paymentRepository.findByReference(reference).isEmpty()) {
             output.println("Payment not found.");
             return;
@@ -237,7 +274,9 @@ public class ConsoleApplication {
         while (true) {
             output.print("Payment reference: ");
             String value = nextLine();
-            if (value == null) return null;
+            if (value == null) {
+                return null;
+            }
             try {
                 return UUID.fromString(value);
             } catch (IllegalArgumentException exception) {
