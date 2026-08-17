@@ -12,6 +12,7 @@ public class Payment {
     private final List<NotificationChannel> notificationChannels;
     private final UUID reference;
     private PaymentStatus status;
+    private BigDecimal feeInCents;
 
 
     public Payment(PaymentType type, BigDecimal amountInCents, Currency currency, NotificationChannel notificationChannel) {
@@ -29,6 +30,7 @@ public class Payment {
         this.notificationChannels = List.copyOf(notificationChannels);
         this.reference = UUID.randomUUID();
         this.status = PaymentStatus.CREATED;
+        this.feeInCents = BigDecimal.ZERO;
     }
 
     public PaymentType getType() {
@@ -57,6 +59,18 @@ public class Payment {
 
     public PaymentStatus getStatus() {
         return status;
+    }
+
+    public BigDecimal getFeeInCents() {
+        return feeInCents;
+    }
+
+    public void setFeeInCents(BigDecimal feeInCents) {
+        this.feeInCents = feeInCents;
+    }
+
+    public BigDecimal getTotalInCents() {
+        return amountInCents.add(feeInCents);
     }
 
     public void markAsProcessed() {

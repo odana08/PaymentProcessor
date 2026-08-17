@@ -5,7 +5,6 @@ import org.example.repo.PaymentRepository;
 import org.example.model.Currency;
 import org.example.model.NotificationChannel;
 import org.example.model.Payment;
-import org.example.model.PaymentRecord;
 import org.example.model.PaymentType;
 import org.junit.jupiter.api.Test;
 
@@ -135,8 +134,8 @@ class ConsoleApplicationTest {
                 new PaymentType("DOMESTIC_FEE"), new BigDecimal("1000"), Currency.JOD,
                 new NotificationChannel("EMAIL")
         );
-        PaymentRecord record = new PaymentRecord(payment, new BigDecimal("150"));
-        repository.save(record);
+        payment.setFeeInCents(new BigDecimal("150"));
+        repository.save(payment);
         PaymentProcessor processor = new PaymentProcessor(List.of(), List.of(), repository);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ConsoleApplication application = new ConsoleApplication(

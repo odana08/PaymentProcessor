@@ -50,4 +50,19 @@ class PaymentTest {
 
         assertEquals(PaymentStatus.PROCESSED, payment.getStatus());
     }
+
+    @Test
+    void givenPaymentFee_whenFeeSet_thenExposesFeeAndTotal() {
+        Payment payment = new Payment(
+                new PaymentType("DOMESTIC_FEE"),
+                new BigDecimal("2000"),
+                Currency.JOD,
+                new NotificationChannel("EMAIL")
+        );
+
+        payment.setFeeInCents(new BigDecimal("150"));
+
+        assertEquals(new BigDecimal("150"), payment.getFeeInCents());
+        assertEquals(new BigDecimal("2150"), payment.getTotalInCents());
+    }
 }

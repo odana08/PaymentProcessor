@@ -2,7 +2,6 @@ package org.example.service;
 
 import org.example.model.Currency;
 import org.example.model.Payment;
-import org.example.model.PaymentRecord;
 
 import org.junit.jupiter.api.Test;
 
@@ -25,21 +24,19 @@ class EmailNotificationSenderTest {
     }
 
     @Test
-    void givenPaymentRecord_whenEmailSent_thenWritesPaymentDetails() {
+    void givenPayment_whenEmailSent_thenWritesPaymentDetails() {
         Payment payment = mock(Payment.class);
-        PaymentRecord record = mock(PaymentRecord.class);
-        when(record.getPayment()).thenReturn(payment);
         when(payment.getAmountInCents()).thenReturn(new BigDecimal("2500"));
         when(payment.getCurrency()).thenReturn(Currency.JOD);
         UUID reference = UUID.fromString("8a2dd71f-ccaa-4c49-82ea-17222b6ecfee");
         when(payment.getReference()).thenReturn(reference);
-        when(record.getFeeInCents()).thenReturn(new BigDecimal("150"));
+        when(payment.getFeeInCents()).thenReturn(new BigDecimal("150"));
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         PrintStream originalOutput = System.out;
 
         try {
             System.setOut(new PrintStream(output));
-            sender.send(record);
+            sender.send(payment);
         } finally {
             System.setOut(originalOutput);
         }

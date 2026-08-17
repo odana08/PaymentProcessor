@@ -3,7 +3,6 @@ package org.example.service;
 import org.example.model.NotificationChannel;
 import org.example.model.Currency;
 import org.example.model.Payment;
-import org.example.model.PaymentRecord;
 import org.example.model.PaymentStatus;
 import org.example.model.PaymentType;
 import org.example.repo.PaymentRepository;
@@ -35,9 +34,9 @@ class PaymentProcessorTest {
         when(sender.supportedChannel()).thenReturn(new NotificationChannel("EMAIL"));
         PaymentProcessor processor = new PaymentProcessor(List.of(rule), List.of(sender), repository);
 
-        PaymentRecord result = processor.process(payment);
+        Payment result = processor.process(payment);
 
-        assertSame(payment, result.getPayment());
+        assertSame(payment, result);
         assertEquals(new BigDecimal("150"), result.getFeeInCents());
         assertEquals(PaymentStatus.PROCESSED, payment.getStatus());
         verify(repository).save(result);
@@ -60,7 +59,7 @@ class PaymentProcessorTest {
                 repository
         );
 
-        PaymentRecord result = processor.process(payment);
+        Payment result = processor.process(payment);
 
         assertEquals(new BigDecimal("500"), result.getFeeInCents());
         verify(domesticRule, never()).calculateFee(payment);
@@ -98,7 +97,7 @@ class PaymentProcessorTest {
         assertEquals("Unsupported notification channel: PUSH", exception.getMessage());
         assertEquals(PaymentStatus.CREATED, payment.getStatus());
         verify(repository, never()).update(org.mockito.ArgumentMatchers.any());
-        verify(repository).save(org.mockito.ArgumentMatchers.any(PaymentRecord.class));
+        verify(repository).save(org.mockito.ArgumentMatchers.any(Payment.class));
     }
 
     @Test
@@ -109,7 +108,7 @@ class PaymentProcessorTest {
         PaymentRepository repository = mock(PaymentRepository.class);
         when(rule.calculateFee(payment)).thenReturn(new BigDecimal("150"));
         doThrow(new IllegalStateException("Notification failed"))
-                .when(sender).send(org.mockito.ArgumentMatchers.any(PaymentRecord.class));
+                .when(sender).send(org.mockito.ArgumentMatchers.any(Payment.class));
         PaymentProcessor processor = new PaymentProcessor(List.of(rule), List.of(sender), repository);
 
         assertThrows(IllegalStateException.class, () -> processor.process(payment));
@@ -135,7 +134,7 @@ class PaymentProcessorTest {
                 List.of(rule), List.of(emailSender, smsSender), repository
         );
 
-        PaymentRecord result = processor.process(payment);
+        Payment result = processor.process(payment);
 
         verify(emailSender).send(result);
         verify(smsSender).send(result);

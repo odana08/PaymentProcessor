@@ -3,7 +3,6 @@ package org.example.repo;
 import org.example.model.Currency;
 import org.example.model.NotificationChannel;
 import org.example.model.Payment;
-import org.example.model.PaymentRecord;
 import org.example.model.PaymentStatus;
 import org.example.model.PaymentType;
 import org.junit.jupiter.api.Test;
@@ -28,24 +27,24 @@ class PaymentLogTest {
     }
 
     @Test
-    void givenPaymentRecord_whenSaved_thenReturnsAndStoresRecord() {
-        PaymentRecord record = paymentRecord(Currency.JOD);
+    void givenPayment_whenSaved_thenReturnsAndStoresPayment() {
+        Payment payment = payment(Currency.JOD);
 
-        PaymentRecord saved = repository.save(record);
+        Payment saved = repository.save(payment);
 
-        assertSame(record, saved);
+        assertSame(payment, saved);
         assertEquals(1, repository.findAll().size());
-        assertSame(record, repository.findAll().getFirst());
+        assertSame(payment, repository.findAll().getFirst());
     }
 
     @Test
     void givenSavedRecord_whenFoundByReference_thenReturnsRecord() {
-        PaymentRecord record = paymentRecord(Currency.USD);
-        repository.save(record);
+        Payment payment = payment(Currency.USD);
+        repository.save(payment);
 
-        PaymentRecord result = repository.findByReference(record.getPayment().getReference()).orElseThrow();
+        Payment result = repository.findByReference(payment.getReference()).orElseThrow();
 
-        assertSame(record, result);
+        assertSame(payment, result);
     }
 
     @Test
@@ -55,9 +54,9 @@ class PaymentLogTest {
 
     @Test
     void givenRecordsWithDifferentStatuses_whenFoundByStatus_thenReturnsMatches() {
-        PaymentRecord created = paymentRecord(Currency.JOD);
-        PaymentRecord processed = paymentRecord(Currency.JOD);
-        processed.getPayment().markAsProcessed();
+        Payment created = payment(Currency.JOD);
+        Payment processed = payment(Currency.JOD);
+        processed.markAsProcessed();
         repository.save(created);
         repository.save(processed);
 
@@ -67,53 +66,50 @@ class PaymentLogTest {
 
     @Test
     void givenRecordsWithDifferentCurrencies_whenFoundByCurrency_thenReturnsMatches() {
-        PaymentRecord jodRecord = paymentRecord(Currency.JOD);
-        PaymentRecord usdRecord = paymentRecord(Currency.USD);
-        repository.save(jodRecord);
-        repository.save(usdRecord);
+        Payment jodPayment = payment(Currency.JOD);
+        Payment usdPayment = payment(Currency.USD);
+        repository.save(jodPayment);
+        repository.save(usdPayment);
 
-        assertEquals(List.of(jodRecord), repository.findByCurrency(Currency.JOD));
-        assertEquals(List.of(usdRecord), repository.findByCurrency(Currency.USD));
+        assertEquals(List.of(jodPayment), repository.findByCurrency(Currency.JOD));
+        assertEquals(List.of(usdPayment), repository.findByCurrency(Currency.USD));
     }
 
     @Test
     void givenExistingRecord_whenUpdated_thenReplacesStoredRecord() {
         Payment payment = payment(Currency.JOD);
-        PaymentRecord original = new PaymentRecord(payment, new BigDecimal("100"));
-        PaymentRecord replacement = new PaymentRecord(payment, new BigDecimal("250"));
-        repository.save(original);
+        payment.setFeeInCents(new BigDecimal("100"));
+        repository.save(payment);
+        payment.setFeeInCents(new BigDecimal("250"));
 
-        PaymentRecord updated = repository.update(replacement);
+        Payment updated = repository.update(payment);
 
-        assertSame(replacement, updated);
-        assertSame(replacement, repository.findByReference(payment.getReference()).orElseThrow());
+        assertSame(payment, updated);
+        assertSame(payment, repository.findByReference(payment.getReference()).orElseThrow());
+        assertEquals(new BigDecimal("250"), updated.getFeeInCents());
     }
 
     @Test
     void givenUnknownRecord_whenUpdated_thenThrowsException() {
-        PaymentRecord record = paymentRecord(Currency.JOD);
+        Payment payment = payment(Currency.JOD);
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> repository.update(record)
+                () -> repository.update(payment)
         );
 
-        assertEquals("Payment not found: " + record.getPayment().getReference(), exception.getMessage());
+        assertEquals("Payment not found: " + payment.getReference(), exception.getMessage());
     }
 
     @Test
     void givenSavedRecord_whenDeletedByReference_thenRemovesRecord() {
-        PaymentRecord record = paymentRecord(Currency.JOD);
-        repository.save(record);
+        Payment payment = payment(Currency.JOD);
+        repository.save(payment);
 
-        repository.deleteByReference(record.getPayment().getReference());
+        repository.deleteByReference(payment.getReference());
 
-        assertFalse(repository.findByReference(record.getPayment().getReference()).isPresent());
+        assertFalse(repository.findByReference(payment.getReference()).isPresent());
         assertTrue(repository.findAll().isEmpty());
-    }
-
-    private PaymentRecord paymentRecord(Currency currency) {
-        return new PaymentRecord(payment(currency), new BigDecimal("150"));
     }
 
     private Payment payment(Currency currency) {

@@ -1,6 +1,6 @@
 package org.example.repo;
 
-import org.example.model.PaymentRecord;
+import org.example.model.Payment;
 import org.example.model.PaymentStatus;
 import org.example.model.Currency;
 
@@ -12,19 +12,19 @@ import java.util.UUID;
 
 public class PaymentLog implements PaymentRepository {
 
-    private final List<PaymentRecord> records = new ArrayList<>();
+    private final List<Payment> payments = new ArrayList<>();
 
     @Override
-    public PaymentRecord save(PaymentRecord paymentRecord) {
-        records.add(paymentRecord);
-        return paymentRecord;
+    public Payment save(Payment payment) {
+        payments.add(payment);
+        return payment;
     }
 
     @Override
-    public Optional<PaymentRecord> findByReference(UUID reference) {
-        for (PaymentRecord record : records) {
-            if (record.getPayment().getReference().equals(reference)) {
-                return Optional.of(record);
+    public Optional<Payment> findByReference(UUID reference) {
+        for (Payment payment : payments) {
+            if (payment.getReference().equals(reference)) {
+                return Optional.of(payment);
             }
         }
 
@@ -32,44 +32,44 @@ public class PaymentLog implements PaymentRepository {
     }
 
     @Override
-    public List<PaymentRecord> findAll() {
-        return List.copyOf(records);
+    public List<Payment> findAll() {
+        return List.copyOf(payments);
     }
 
     @Override
-    public List<PaymentRecord> findByStatus(PaymentStatus status) {
-        List<PaymentRecord> matchingRecords = new ArrayList<>();
+    public List<Payment> findByStatus(PaymentStatus status) {
+        List<Payment> matchingPayments = new ArrayList<>();
 
-        for (PaymentRecord record : records) {
-            if (record.getPayment().getStatus() == status) {
-                matchingRecords.add(record);
+        for (Payment payment : payments) {
+            if (payment.getStatus() == status) {
+                matchingPayments.add(payment);
             }
         }
 
-        return matchingRecords;
+        return matchingPayments;
     }
 
     @Override
-    public List<PaymentRecord> findByCurrency(Currency currency) {
-        List<PaymentRecord> matchingRecords = new ArrayList<>();
+    public List<Payment> findByCurrency(Currency currency) {
+        List<Payment> matchingPayments = new ArrayList<>();
 
-        for (PaymentRecord record : records) {
-            if (record.getPayment().getCurrency() == currency) {
-                matchingRecords.add(record);
+        for (Payment payment : payments) {
+            if (payment.getCurrency() == currency) {
+                matchingPayments.add(payment);
             }
         }
 
-        return matchingRecords;
+        return matchingPayments;
     }
 
     @Override
-    public PaymentRecord update(PaymentRecord paymentRecord) {
-        UUID reference = paymentRecord.getPayment().getReference();
+    public Payment update(Payment payment) {
+        UUID reference = payment.getReference();
 
-        for (int index = 0; index < records.size(); index++) {
-            if (records.get(index).getPayment().getReference().equals(reference)) {
-                records.set(index, paymentRecord);
-                return paymentRecord;
+        for (int index = 0; index < payments.size(); index++) {
+            if (payments.get(index).getReference().equals(reference)) {
+                payments.set(index, payment);
+                return payment;
             }
         }
 
@@ -78,12 +78,12 @@ public class PaymentLog implements PaymentRepository {
 
     @Override
     public void deleteByReference(UUID reference) {
-        Iterator<PaymentRecord> iterator = records.iterator();
+        Iterator<Payment> iterator = payments.iterator();
 
         while (iterator.hasNext()) {
-            PaymentRecord record = iterator.next();
+            Payment payment = iterator.next();
 
-            if (record.getPayment().getReference().equals(reference)) {
+            if (payment.getReference().equals(reference)) {
                 iterator.remove();
                 return;
             }

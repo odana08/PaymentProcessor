@@ -1,6 +1,6 @@
 package org.example.repo;
 
-import org.example.model.PaymentRecord;
+import org.example.model.Payment;
 import org.example.model.PaymentStatus;
 import org.example.model.Currency;
 
@@ -10,17 +10,17 @@ import java.util.UUID;
 
 public interface PaymentRepository {
 
-    PaymentRecord save(PaymentRecord paymentRecord);
+    Payment save(Payment payment);
 
-    Optional<PaymentRecord> findByReference(UUID reference);
+    Optional<Payment> findByReference(UUID reference);
 
-    List<PaymentRecord> findAll();
+    List<Payment> findAll();
 
-    List<PaymentRecord> findByStatus(PaymentStatus status);
+    List<Payment> findByStatus(PaymentStatus status);
 
-    List<PaymentRecord> findByCurrency(Currency currency);
+    List<Payment> findByCurrency(Currency currency);
 
-    PaymentRecord update(PaymentRecord paymentRecord);
+    Payment update(Payment payment);
 
     void deleteByReference(UUID reference);
 }

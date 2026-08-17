@@ -2,7 +2,6 @@ package org.example.service;
 
 import org.example.model.NotificationChannel;
 import org.example.model.Payment;
-import org.example.model.PaymentRecord;
 import org.example.repo.PaymentRepository;
 
 import java.math.BigDecimal;
@@ -29,22 +28,22 @@ public class PaymentProcessor {
         this.paymentRepository = paymentRepository;
     }
 
-    public PaymentRecord process(Payment payment) {
+    public Payment process(Payment payment) {
 
         BigDecimal fee = feeCalculator.calculateFee(payment);
 
-        PaymentRecord paymentRecord = new PaymentRecord(payment, fee);
+        payment.setFeeInCents(fee);
 
-        paymentRepository.save(paymentRecord);
+        paymentRepository.save(payment);
 
         for (NotificationChannel channel : payment.getNotificationChannels()) {
-            findNotificationSender(channel).send(paymentRecord);
+            findNotificationSender(channel).send(payment);
         }
 
         payment.markAsProcessed();
-        paymentRepository.update(paymentRecord);
+        paymentRepository.update(payment);
 
-        return paymentRecord;
+        return payment;
     }
 
     public List<org.example.model.PaymentType> getAvailablePaymentTypes() {

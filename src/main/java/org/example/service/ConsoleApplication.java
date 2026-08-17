@@ -3,7 +3,6 @@ package org.example.service;
 import org.example.model.Currency;
 import org.example.model.NotificationChannel;
 import org.example.model.Payment;
-import org.example.model.PaymentRecord;
 import org.example.model.PaymentType;
 import org.example.repo.PaymentRepository;
 
@@ -93,15 +92,15 @@ public class ConsoleApplication {
         }
 
         try {
-            PaymentRecord record = paymentProcessor.process(new Payment(type, amount, currency, channels));
+            Payment payment = paymentProcessor.process(new Payment(type, amount, currency, channels));
             output.println("Payment processed successfully.");
-            printRecord(record);
+            printPayment(payment);
         } catch (RuntimeException exception) {
             output.println("Could not process payment. Please check the entered details and try again.");
         }
     }
 
-    private <T> T chooseOne(String label, List<T> options) {
+    private PaymentType chooseOne(String label, List<PaymentType> options) {
         while (true) {
             output.println(label + ":");
             for (int i = 0; i < options.size(); i++) {
@@ -234,13 +233,13 @@ public class ConsoleApplication {
     }
 
     private void listPayments() {
-        List<PaymentRecord> records = paymentRepository.findAll();
-        if (records.isEmpty()) {
+        List<Payment> payments = paymentRepository.findAll();
+        if (payments.isEmpty()) {
             output.println("No payments found.");
             return;
         }
-        for (PaymentRecord record : records) {
-            printRecord(record);
+        for (Payment payment : payments) {
+            printPayment(payment);
         }
     }
 
@@ -249,9 +248,9 @@ public class ConsoleApplication {
         if (reference == null) {
             return;
         }
-        Optional<PaymentRecord> record = paymentRepository.findByReference(reference);
-        if (record.isPresent()) {
-            printRecord(record.get());
+        Optional<Payment> payment = paymentRepository.findByReference(reference);
+        if (payment.isPresent()) {
+            printPayment(payment.get());
         } else {
             output.println("Payment not found.");
         }
@@ -285,14 +284,13 @@ public class ConsoleApplication {
         }
     }
 
-    private void printRecord(PaymentRecord record) {
-        Payment payment = record.getPayment();
+    private void printPayment(Payment payment) {
         output.println("Reference: " + payment.getReference()
                 + ", Type: " + displayOption(payment.getType())
                 + ", Amount: " + payment.getAmountInCents()
                 + ", Currency: " + payment.getCurrency()
-                + ", Fee: " + record.getFeeInCents()
-                + ", Total: " + record.getTotalInCents()
+                + ", Fee: " + payment.getFeeInCents()
+                + ", Total: " + payment.getTotalInCents()
                 + ", Status: " + payment.getStatus());
     }
 }

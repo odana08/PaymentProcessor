@@ -73,9 +73,9 @@ Payment payment = new Payment(
     new NotificationChannel("EMAIL")
 );
 
-PaymentRecord record = processor.process(payment);
+Payment processedPayment = processor.process(payment);
 
-System.out.println(record.getFeeInCents());
+System.out.println(processedPayment.getFeeInCents());
 System.out.println(payment.getReference());
 System.out.println(payment.getStatus());
 System.out.println(paymentRepository.findAll().size());
@@ -85,17 +85,17 @@ Processing follows this sequence:
 
 1. Find the fee rule matching the payment type.
 2. Calculate the fee.
-3. Create and save a `PaymentRecord`.
+3. Add the fee to the payment and save it.
 4. Find the selected notification sender and send the notification.
 5. Mark the payment as `PROCESSED` after the notification succeeds and persist
-   the updated record.
-6. Return the payment record.
+   the updated payment.
+6. Return the payment.
 
 Important extension points:
 
 - `FeeRule` defines a supported payment type and its fee calculation.
 - `NotificationSender` defines a supported channel and how notifications are sent.
-- `PaymentRepository` abstracts payment-record persistence. `PaymentLog` is the
+- `PaymentRepository` abstracts payment persistence. `PaymentLog` is the
   current in-memory implementation; another implementation can be added for
   Spring Boot persistence later.
 - `PaymentProcessor` coordinates calculation, persistence, and notification.
