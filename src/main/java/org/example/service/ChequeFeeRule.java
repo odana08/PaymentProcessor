@@ -2,9 +2,11 @@ package org.example.service;
 
 import org.example.model.Payment;
 import org.example.model.PaymentType;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
+@Component
 public class ChequeFeeRule implements FeeRule {
 
     @Override

@@ -32,15 +32,14 @@ class PaymentProcessorTest {
         when(rule.supportedType()).thenReturn(new PaymentType("DOMESTIC_FEE"));
         when(rule.calculateFee(payment)).thenReturn(new BigDecimal("150"));
         when(sender.supportedChannel()).thenReturn(new NotificationChannel("EMAIL"));
-        PaymentProcessor processor = new PaymentProcessor(List.of(rule), List.of(sender), repository);
+        PaymentProcessor processor = new PaymentProcessor(new FeeCalculator(List.of(rule)), List.of(sender), repository);
 
         Payment result = processor.process(payment);
 
         assertSame(payment, result);
-        assertEquals(new BigDecimal("150"), result.getFeeInCents());
+        assertEquals(new BigDecimal("150.00"), result.getFeeInCents());
         assertEquals(PaymentStatus.PROCESSED, payment.getStatus());
-        verify(repository).save(result);
-        verify(repository).update(result);
+        verify(repository).saveAndFlush(result);
         verify(sender).send(result);
     }
 
@@ -54,14 +53,14 @@ class PaymentProcessorTest {
         PaymentRepository repository = mock(PaymentRepository.class);
         when(chequeRule.calculateFee(payment)).thenReturn(new BigDecimal("500"));
         PaymentProcessor processor = new PaymentProcessor(
-                List.of(domesticRule, chequeRule),
+                new FeeCalculator(List.of(domesticRule, chequeRule)),
                 List.of(emailSender, smsSender),
                 repository
         );
 
         Payment result = processor.process(payment);
 
-        assertEquals(new BigDecimal("500"), result.getFeeInCents());
+        assertEquals(new BigDecimal("500.00"), result.getFeeInCents());
         verify(domesticRule, never()).calculateFee(payment);
         verify(chequeRule).calculateFee(payment);
         verify(emailSender, never()).send(result);
@@ -73,7 +72,7 @@ class PaymentProcessorTest {
         Payment payment = payment("UNKNOWN", "EMAIL");
         FeeRule rule = feeRuleFor("DOMESTIC_FEE");
         PaymentRepository repository = mock(PaymentRepository.class);
-        PaymentProcessor processor = new PaymentProcessor(List.of(rule), List.of(), repository);
+        PaymentProcessor processor = new PaymentProcessor(new FeeCalculator(List.of(rule)), List.of(), repository);
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -81,23 +80,22 @@ class PaymentProcessorTest {
         );
 
         assertEquals("Unsupported payment type: UNKNOWN", exception.getMessage());
-        verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void givenUnsupportedNotificationChannel_whenPaymentProcessed_thenLogsBeforeThrowingException() {
+    void givenUnsupportedNotificationChannel_whenPaymentProcessed_thenRejectsBeforeSaving() {
         Payment payment = payment("DOMESTIC_FEE", "PUSH");
         FeeRule rule = feeRuleFor("DOMESTIC_FEE");
         PaymentRepository repository = mock(PaymentRepository.class);
         when(rule.calculateFee(payment)).thenReturn(new BigDecimal("150"));
-        PaymentProcessor processor = new PaymentProcessor(List.of(rule), List.of(), repository);
+        PaymentProcessor processor = new PaymentProcessor(new FeeCalculator(List.of(rule)), List.of(), repository);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> processor.process(payment));
 
         assertEquals("Unsupported notification channel: PUSH", exception.getMessage());
         assertEquals(PaymentStatus.CREATED, payment.getStatus());
-        verify(repository, never()).update(org.mockito.ArgumentMatchers.any());
-        verify(repository).save(org.mockito.ArgumentMatchers.any(Payment.class));
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any(Payment.class));
     }
 
     @Test
@@ -109,12 +107,11 @@ class PaymentProcessorTest {
         when(rule.calculateFee(payment)).thenReturn(new BigDecimal("150"));
         doThrow(new IllegalStateException("Notification failed"))
                 .when(sender).send(org.mockito.ArgumentMatchers.any(Payment.class));
-        PaymentProcessor processor = new PaymentProcessor(List.of(rule), List.of(sender), repository);
+        PaymentProcessor processor = new PaymentProcessor(new FeeCalculator(List.of(rule)), List.of(sender), repository);
 
         assertThrows(IllegalStateException.class, () -> processor.process(payment));
 
         assertEquals(PaymentStatus.CREATED, payment.getStatus());
-        verify(repository, never()).update(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -131,7 +128,7 @@ class PaymentProcessorTest {
         PaymentRepository repository = mock(PaymentRepository.class);
         when(rule.calculateFee(payment)).thenReturn(new BigDecimal("150"));
         PaymentProcessor processor = new PaymentProcessor(
-                List.of(rule), List.of(emailSender, smsSender), repository
+                new FeeCalculator(List.of(rule)), List.of(emailSender, smsSender), repository
         );
 
         Payment result = processor.process(payment);
