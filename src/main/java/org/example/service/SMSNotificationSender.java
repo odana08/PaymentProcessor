@@ -2,7 +2,9 @@ package org.example.service;
 
 import org.example.model.NotificationChannel;
 import org.example.model.Payment;
+import org.springframework.stereotype.Component;
 
+@Component
 public class SMSNotificationSender implements NotificationSender {
 
     @Override

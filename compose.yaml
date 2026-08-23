@@ -1,0 +1,22 @@
+services:
+  mysql:
+    image: mysql:8.4.11
+    container_name: fee-calculator-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local_root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-fee_calculator}
+      MYSQL_USER: ${MYSQL_USER:-fee_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-fee_app_password}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", 'mysqladmin ping -h localhost -u root --password="$$MYSQL_ROOT_PASSWORD"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  mysql_data:

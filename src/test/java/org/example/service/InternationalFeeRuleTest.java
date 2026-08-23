@@ -34,4 +34,12 @@ class InternationalFeeRuleTest {
 
         assertEquals(new BigDecimal("3.98"), rule.calculateFee(payment));
     }
+
+    @Test
+    void givenFeeBelowTheStoredScale_whenFeeCalculated_thenRoundsHalfUpToTwoDecimals() {
+        Payment payment = mock(Payment.class);
+        when(payment.getAmountInCents()).thenReturn(new BigDecimal("199.99"));
+
+        assertEquals(new BigDecimal("4.00"), rule.calculateFee(payment));
+    }
 }
