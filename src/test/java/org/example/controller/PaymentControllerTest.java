@@ -193,7 +193,7 @@ class PaymentControllerTest {
                                   "currency": "JOD",
                                   "notificationChannels": []
                                 }
-                                """))
+                """))
                 .andExpect(status().isBadRequest());
     }
 
