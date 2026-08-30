@@ -181,9 +181,10 @@ class ConsoleApplicationTest {
 
     private PaymentProcessor processor(PaymentRepository repository, List<FeeRule> rules,
                                        String... channelNames) {
-        List<NotificationSender> senders = java.util.Arrays.stream(channelNames)
-                .map(this::sender)
-                .toList();
+        List<NotificationSender> senders = new ArrayList<>();
+        for (String channelName : channelNames) {
+            senders.add(sender(channelName));
+        }
         return new PaymentProcessor(new FeeCalculator(rules), senders, repository);
     }
 

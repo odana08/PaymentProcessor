@@ -1,0 +1,10 @@
+.git
+.gitignore
+.gitlab-ci.yml
+.idea
+.m2
+.env
+target
+README.md
+compose.yaml
+scripts

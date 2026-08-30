@@ -188,7 +188,11 @@ public class PaymentProcessor {
     }
 
     private List<NotificationChannel> toNotificationChannels(List<String> names) {
-        return names.stream().map(NotificationChannel::new).toList();
+        List<NotificationChannel> channels = new ArrayList<>();
+        for (String name : names) {
+            channels.add(new NotificationChannel(name));
+        }
+        return List.copyOf(channels);
     }
 
     private void validateUniqueChannels(List<NotificationChannel> channels) {

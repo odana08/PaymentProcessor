@@ -16,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,9 +49,11 @@ class PaymentRepositoryIntegrationTest {
         // Then
         assertEquals(payment.getReference(), found.getReference());
         assertEquals(new BigDecimal("150.00"), found.getFeeInCents());
-        assertEquals(List.of("EMAIL", "SMS"), found.getNotificationChannels().stream()
-                .map(NotificationChannel::getName)
-                .toList());
+        List<String> channelNames = new ArrayList<>();
+        for (NotificationChannel channel : found.getNotificationChannels()) {
+            channelNames.add(channel.getName());
+        }
+        assertEquals(List.of("EMAIL", "SMS"), channelNames);
     }
 
     @Test
@@ -67,12 +70,16 @@ class PaymentRepositoryIntegrationTest {
         List<Payment> usdPayments = repository.findByCurrency(Currency.USD);
 
         // Then
-        assertEquals(List.of(jod.getReference()), createdPayments.stream()
-                .map(Payment::getReference)
-                .toList());
-        assertEquals(List.of(usd.getReference()), usdPayments.stream()
-                .map(Payment::getReference)
-                .toList());
+        List<java.util.UUID> createdReferences = new ArrayList<>();
+        for (Payment payment : createdPayments) {
+            createdReferences.add(payment.getReference());
+        }
+        List<java.util.UUID> usdReferences = new ArrayList<>();
+        for (Payment payment : usdPayments) {
+            usdReferences.add(payment.getReference());
+        }
+        assertEquals(List.of(jod.getReference()), createdReferences);
+        assertEquals(List.of(usd.getReference()), usdReferences);
     }
 
     @Test
@@ -117,9 +124,10 @@ class PaymentRepositoryIntegrationTest {
     }
 
     private Payment payment(String type, Currency currency, String amount, String... channels) {
-        List<NotificationChannel> notificationChannels = java.util.Arrays.stream(channels)
-                .map(NotificationChannel::new)
-                .toList();
+        List<NotificationChannel> notificationChannels = new ArrayList<>();
+        for (String channel : channels) {
+            notificationChannels.add(new NotificationChannel(channel));
+        }
         return new Payment(
                 new PaymentType(type),
                 new BigDecimal(amount),

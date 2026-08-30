@@ -51,6 +51,7 @@ class PaymentControllerTest {
         processor = mock(PaymentProcessor.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new PaymentController(processor))
+                .setControllerAdvice(new ApiExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setValidator(new SpringValidatorAdapter(
                         Validation.buildDefaultValidatorFactory().getValidator()
@@ -194,7 +195,37 @@ class PaymentControllerTest {
                                   "notificationChannels": []
                                 }
                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.message").value("Request validation failed"))
+                .andExpect(jsonPath("$.path").value("/api/payments"))
+                .andExpect(jsonPath("$.violations.length()").value(3));
+    }
+
+    @Test
+    void missingPaymentReturnsControlledNotFoundResponse() throws Exception {
+        when(processor.getPayment(REFERENCE)).thenThrow(new java.util.NoSuchElementException(
+                "Payment not found: " + REFERENCE
+        ));
+
+        mockMvc.perform(get("/api/payments/{reference}", REFERENCE))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PAYMENT_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Payment not found: " + REFERENCE))
+                .andExpect(jsonPath("$.violations").isEmpty());
+    }
+
+    @Test
+    void invalidDomainInputReturnsControlledBadRequestResponse() throws Exception {
+        when(processor.patchPayment(eq(REFERENCE), any(PatchPaymentRequest.class)))
+                .thenThrow(new IllegalArgumentException("At least one payment field must be supplied"));
+
+        mockMvc.perform(patch("/api/payments/{reference}", REFERENCE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("At least one payment field must be supplied"));
     }
 
     @Test

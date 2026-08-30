@@ -7,6 +7,7 @@ import org.example.model.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 
 public record PaymentResponse(
@@ -21,9 +22,10 @@ public record PaymentResponse(
 ) {
 
     public static PaymentResponse from(Payment payment) {
-        List<String> channels = payment.getNotificationChannels().stream()
-                .map(NotificationChannel::getName)
-                .toList();
+        List<String> channels = new ArrayList<>();
+        for (NotificationChannel channel : payment.getNotificationChannels()) {
+            channels.add(channel.getName());
+        }
 
         return new PaymentResponse(
                 payment.getReference(),

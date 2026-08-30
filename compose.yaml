@@ -1,4 +1,19 @@
 services:
+  app:
+    build:
+      context: .
+    image: fee-calculator:local
+    container_name: fee-calculator-app
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-fee_calculator}?serverTimezone=UTC
+      DB_USERNAME: ${MYSQL_USER:-fee_app}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-fee_app_password}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
   mysql:
     image: mysql:8.4.11
     container_name: fee-calculator-mysql

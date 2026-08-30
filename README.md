@@ -1,153 +1,322 @@
 # Fee Calculator
 
-A small Java application that calculates payment fees, records processed payments,
-and sends a notification through the payment's selected channel.
+Spring Boot REST API for processing payments and calculating fees.
 
-The project demonstrates a rule-based design: fee calculations and notification
-channels can be extended without changing the central `PaymentProcessor`.
+## Requirements
 
-## Console application
+- JDK 26
+- Maven 3.6.3 or newer
+- Docker with the Compose plugin
+- curl and Python 3 for `scripts/api-test.sh`
 
-Run `org.example.service.Main` from your IDE to open the interactive console.
-The menu supports processing a payment, listing all payments, finding a payment
-by its UUID reference, and deleting a payment.
+Java 26 is the current project target. It is not an LTS release, so the target should be reviewed before a production deployment.
 
-## Features
+## Stack
 
-- Calculates fees for domestic, international, and cheque payments
-- Assigns a unique UUID reference to every payment
-- Supports `JOD` and `USD` currencies
-- Tracks each payment from `CREATED` to `PROCESSED`
-- Selects fee rules by payment type
-- Sends email or SMS notifications
-- Stores processed payments in an in-memory log
-- Rejects unsupported payment types and notification channels
-- Includes unit tests for the domain objects, rules, senders, log, and processor
+- Spring Boot 4.1.1
+- Spring MVC and Jakarta Validation
+- Spring Data JPA and Hibernate
+- Flyway
+- MySQL 8.4
+- H2 for automated tests
 
 ## Fee rules
 
-All monetary values are represented in cents using `BigDecimal`.
-
 | Payment type | Fee |
-| --- | ---: |
+| --- | --- |
 | `DOMESTIC_FEE` | 150 cents |
-| `INTERNATIONAL_FEE` | 2% of the payment amount |
-| `CHEQUE_FEE` up to 10,000 cents | 200 cents |
-| `CHEQUE_FEE` from 10,001 to 50,000 cents | 500 cents |
-| `CHEQUE_FEE` above 50,000 cents | 1,000 cents |
+| `INTERNATIONAL_FEE` | 2% of the amount |
+| `CHEQUE_FEE` | 200 up to 10,000; 500 up to 50,000; 1,000 above 50,000 |
 
-Supported notification channels are `EMAIL` and `SMS`.
+Amounts and fees are stored with two decimal places. International fees are rounded with `RoundingMode.HALF_UP`.
 
-## Usage
+## Architecture
 
-Create the available rules and senders, then pass them to a `PaymentProcessor`:
-
-```java
-import org.example.model.*;
-import org.example.repo.PaymentLog;
-import org.example.repo.PaymentRepository;
-import org.example.service.*;
-
-import java.math.BigDecimal;
-import java.util.List;
-
-PaymentRepository paymentRepository = new PaymentLog();
-
-PaymentProcessor processor = new PaymentProcessor(
-    List.of(
-        new DomesticFeeRule(),
-        new InternationalFeeRule(),
-        new ChequeFeeRule()
-    ),
-    List.of(
-        new EmailNotificationSender(),
-        new SMSNotificationSender()
-    ),
-    paymentRepository
-);
-
-Payment payment = new Payment(
-    new PaymentType("INTERNATIONAL_FEE"),
-    new BigDecimal("25000"),
-    Currency.JOD,
-    new NotificationChannel("EMAIL")
-);
-
-Payment processedPayment = processor.process(payment);
-
-System.out.println(processedPayment.getFeeInCents());
-System.out.println(payment.getReference());
-System.out.println(payment.getStatus());
-System.out.println(paymentRepository.findAll().size());
+```text
+PaymentController
+        ↓
+PaymentProcessor
+   ├── FeeCalculator → FeeRule implementations
+   ├── NotificationSender implementations
+   └── PaymentRepository
+               ↓
+        Spring Data JPA
+               ↓
+           Hibernate
+               ↓
+             MySQL
 ```
 
-Processing follows this sequence:
+`PaymentController` handles HTTP input and output. `PaymentProcessor` contains transaction boundaries and payment processing. `PaymentRepository` is the database boundary.
 
-1. Find the fee rule matching the payment type.
-2. Calculate the fee.
-3. Add the fee to the payment and save it.
-4. Find the selected notification sender and send the notification.
-5. Mark the payment as `PROCESSED` after the notification succeeds and persist
-   the updated payment.
-6. Return the payment.
+The email and SMS senders currently write to standard output. They are placeholders for real notification integrations.
 
-Important extension points:
+## Run locally
 
-- `FeeRule` defines a supported payment type and its fee calculation.
-- `NotificationSender` defines a supported channel and how notifications are sent.
-- `PaymentRepository` abstracts payment persistence. `PaymentLog` is the
-  current in-memory implementation; another implementation can be added for
-  Spring Boot persistence later.
-- `PaymentProcessor` coordinates calculation, persistence, and notification.
+Clone the repository and prepare the local environment:
 
-## SOLID principles
+```bash
+git clone git@gitlab.progressoft.io:ps.omar.dana/paymentprocessor.git FeeCalculator
+cd FeeCalculator
+cp .env.example .env
+```
 
-### Single Responsibility Principle
+### Run with Docker
 
-Each class has one main responsibility:
+Build the application image and start it with MySQL:
 
-- `DomesticFeeRule`, `InternationalFeeRule`, and `ChequeFeeRule` calculate fees.
-- `EmailNotificationSender` and `SMSNotificationSender` send notifications.
-- `PaymentLog` stores and retrieves payment records in memory.
-- `PaymentProcessor` coordinates the payment-processing workflow.
-- `ConsoleApplication` handles console input and output.
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose logs -f app
+```
 
-### Open/Closed Principle
+When the application has started, verify the API:
 
-`PaymentProcessor` is open to new behavior but does not need to be modified for
-each new implementation. A new payment calculation can implement `FeeRule`, and
-a new notification channel can implement `NotificationSender`. The implementations
-are supplied to the processor through its constructor.
+```bash
+curl http://localhost:8080/api/payments/options
+```
 
-### Liskov Substitution Principle
+The built image is named `fee-calculator:local`. Stop the containers without deleting the MySQL volume:
 
-Implementations can be used wherever their interface is expected:
+```bash
+docker compose down
+```
 
-- `DomesticFeeRule`, `InternationalFeeRule`, and `ChequeFeeRule` are substitutable
-  as `FeeRule` instances.
-- `EmailNotificationSender` and `SMSNotificationSender` are substitutable as
-  `NotificationSender` instances.
-- `PaymentLog` is usable as a `PaymentRepository`, and a future database-backed
-  repository can replace it without changing repository clients.
+### Run Spring Boot directly
 
-### Interface Segregation Principle
+Make sure `JAVA_HOME` points to JDK 26:
 
-`FeeRule` and `NotificationSender` are small, focused interfaces. Fee-rule
-implementations only provide payment-type and fee-calculation behavior, while
-notification implementations only provide channel and sending behavior.
+```bash
+export JAVA_HOME=/path/to/jdk-26
+export PATH="$JAVA_HOME/bin:$PATH"
 
-### Dependency Inversion Principle
+java -version
+mvn -version
+```
 
-`PaymentProcessor` depends on the abstractions `FeeRule`, `NotificationSender`,
-and `PaymentRepository` instead of depending directly on concrete fee rules,
-senders, or `PaymentLog`. `Main` selects and injects the concrete implementations.
+Start MySQL:
 
-## Extending the project
+```bash
+docker compose up -d mysql
+docker compose ps
+docker compose logs --tail=50 mysql
+```
 
-To add a payment type, implement `FeeRule` and include the new instance in the
-processor's fee-rule list. To add a notification channel, implement
-`NotificationSender` and include it in the sender list.
+Load the application variables and start Spring Boot:
 
-Names are matched exactly and are case-sensitive, so the value returned by an
-implementation's `supportedType()` or `supportedChannel()` must match the value
-provided on the payment.
+```bash
+set -a
+. ./.env
+set +a
+
+SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
+```
+
+The API listens on `http://localhost:8080`.
+
+Interactive Swagger UI is available at:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+The generated OpenAPI JSON document is available at:
+
+```text
+http://localhost:8080/v3/api-docs
+```
+
+To build and run the JAR:
+
+```bash
+mvn clean package
+SPRING_PROFILES_ACTIVE=dev java -jar target/fee-calculator-1.0-SNAPSHOT.jar
+```
+
+## Configuration
+
+| Variable | Default |
+| --- | --- |
+| `DB_URL` | `jdbc:mysql://localhost:3306/fee_calculator?serverTimezone=UTC` |
+| `DB_USERNAME` | `fee_app` |
+| `DB_PASSWORD` | `fee_app_password` |
+| `MYSQL_ROOT_PASSWORD` | `local_root_password` |
+| `MYSQL_DATABASE` | `fee_calculator` |
+| `MYSQL_USER` | `fee_app` |
+| `MYSQL_PASSWORD` | `fee_app_password` |
+| `MYSQL_PORT` | `3306` |
+
+The values in `.env.example` are for local development only. `.env` is ignored by Git.
+
+The `dev` profile logs Hibernate SQL and JDBC bind values. Do not enable bind-value logging in production.
+
+## API
+
+Base path: `/api/payments`
+
+| Method | Path | Description | Success |
+| --- | --- | --- | --- |
+| `POST` | `/api/payments` | Process a payment | `201 Created` |
+| `GET` | `/api/payments` | Search and page payments | `200 OK` |
+| `GET` | `/api/payments/options` | List supported types and channels | `200 OK` |
+| `GET` | `/api/payments/{reference}` | Find a payment | `200 OK` |
+| `PUT` | `/api/payments/{reference}` | Replace editable payment details | `200 OK` |
+| `PATCH` | `/api/payments/{reference}` | Update selected payment details | `200 OK` |
+| `DELETE` | `/api/payments/{reference}` | Delete a payment | `204 No Content` |
+
+The collection endpoint accepts:
+
+- `status`
+- `currency`
+- `paymentType`
+- `page`
+- `size`
+- `sort`
+
+The default page is `0`, the default size is `20`, and the maximum size is `100`. Supported sort fields are `reference`, `type.name`, `amountInCents`, `currency`, `status`, and `feeInCents`.
+
+### Create a payment
+
+```bash
+curl -i -X POST http://localhost:8080/api/payments \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "paymentType": "DOMESTIC_FEE",
+    "amountInCents": 10000.00,
+    "currency": "JOD",
+    "notificationChannels": ["EMAIL", "SMS"]
+  }'
+```
+
+Example response:
+
+```json
+{
+  "reference": "8a2dd71f-ccaa-4c49-82ea-17222b6ecfee",
+  "paymentType": "DOMESTIC_FEE",
+  "amountInCents": 10000.00,
+  "currency": "JOD",
+  "notificationChannels": ["EMAIL", "SMS"],
+  "feeInCents": 150.00,
+  "totalInCents": 10150.00,
+  "status": "PROCESSED"
+}
+```
+
+### Read and filter payments
+
+```bash
+REFERENCE=8a2dd71f-ccaa-4c49-82ea-17222b6ecfee
+
+curl -i "http://localhost:8080/api/payments/$REFERENCE"
+curl -i 'http://localhost:8080/api/payments?page=0&size=10&sort=reference,desc'
+curl -i 'http://localhost:8080/api/payments?status=PROCESSED&currency=JOD&paymentType=domestic_fee'
+```
+
+### Replace or patch a payment
+
+```bash
+curl -i -X PUT "http://localhost:8080/api/payments/$REFERENCE" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "paymentType": "CHEQUE_FEE",
+    "amountInCents": 25000.00,
+    "currency": "USD",
+    "notificationChannels": ["SMS"]
+  }'
+
+curl -i -X PATCH "http://localhost:8080/api/payments/$REFERENCE" \
+  -H 'Content-Type: application/json' \
+  -d '{"amountInCents": 60000.00}'
+```
+
+PUT and PATCH recalculate the fee and run the selected notification senders.
+
+### Delete a payment
+
+```bash
+curl -i -X DELETE "http://localhost:8080/api/payments/$REFERENCE"
+```
+
+## Errors
+
+API errors use a consistent JSON response:
+
+```json
+{
+  "timestamp": "2026-08-28T17:00:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "code": "INVALID_REQUEST",
+  "message": "Invalid sort property: notAField",
+  "path": "/api/payments",
+  "violations": []
+}
+```
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| `400` | `VALIDATION_FAILED` | One or more request fields failed Jakarta Validation; `violations` identifies them |
+| `400` | `MALFORMED_REQUEST` | JSON, path, or query input could not be parsed |
+| `400` | `INVALID_REQUEST` | A domain rule was violated, such as an unsupported type or duplicate channel |
+| `404` | `PAYMENT_NOT_FOUND` | No payment exists for the supplied reference |
+| `409` | `PAYMENT_CONFLICT` | An optimistic-lock conflict occurred during a concurrent update |
+
+Unexpected exceptions remain `500 Internal Server Error` and use Spring Boot's non-disclosing default response.
+
+## Database
+
+Flyway creates two application tables:
+
+- `payments`, keyed by UUID `reference`
+- `payment_notification_channels`, keyed by payment reference and channel order
+
+The channel table has a foreign key to `payments`, an `ON DELETE CASCADE`, and a unique constraint on payment reference plus channel name. Payment status, currency, and type have indexes used by the repository filters.
+
+Hibernate runs with `ddl-auto=validate`; schema changes belong in new Flyway migrations under `src/main/resources/db/migration`.
+
+Inspect local rows with:
+
+```bash
+docker compose exec mysql sh -lc \
+  'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" \
+  -e "SELECT reference, payment_type, amount_in_cents, currency, status, fee_in_cents, version FROM payments;"'
+```
+
+## Docker data
+
+MySQL stores its files in the `mysql_data` named volume.
+
+```bash
+docker compose down
+docker compose up -d mysql
+```
+
+The commands above recreate the container without deleting its data. To remove the local database as well:
+
+```bash
+docker compose down -v
+```
+
+## Tests
+
+Run the Maven suite:
+
+```bash
+mvn test
+```
+
+The test profile uses H2 in MySQL compatibility mode and applies the same Flyway migration. The suite includes unit, MockMvc, repository, service integration, and random-port HTTP tests.
+
+With the application running, exercise the API using:
+
+```bash
+./scripts/api-test.sh
+```
+
+Set `API_BASE_URL` to test another host or port:
+
+```bash
+API_BASE_URL=http://localhost:9090 ./scripts/api-test.sh
+```

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.ArrayList;
 
 @Service
 public class FeeCalculator {
@@ -27,8 +28,10 @@ public class FeeCalculator {
     }
 
     public List<PaymentType> getAvailableTypes() {
-        return feeRules.stream()
-                .map(FeeRule::supportedType)
-                .toList();
+        List<PaymentType> types = new ArrayList<>();
+        for (FeeRule feeRule : feeRules) {
+            types.add(feeRule.supportedType());
+        }
+        return List.copyOf(types);
     }
 }

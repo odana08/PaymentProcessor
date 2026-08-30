@@ -161,20 +161,39 @@ class FeeCalculatorApplicationTest {
     }
 
     @Test
-    void invalidSortUsesTheDefaultServerErrorResponse() throws Exception {
+    void invalidSortUsesTheControlledBadRequestResponse() throws Exception {
         HttpClient client = HttpClient.newHttpClient();
         String baseUrl = "http://localhost:" + port + "/api/payments";
-
         HttpResponse<String> response = client.send(
                 HttpRequest.newBuilder(URI.create(baseUrl + "?sort=notAField")).GET().build(),
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        assertEquals(500, response.statusCode());
+        assertEquals(400, response.statusCode());
         JsonNode error = objectMapper.readTree(response.body());
-        assertEquals(500, error.required("status").intValue());
-        assertEquals("Internal Server Error", error.required("error").stringValue());
+        assertEquals(400, error.required("status").intValue());
+        assertEquals("Bad Request", error.required("error").stringValue());
+        assertEquals("INVALID_REQUEST", error.required("code").stringValue());
+        assertEquals("Invalid sort property: notAField", error.required("message").stringValue());
         assertEquals("/api/payments", error.required("path").stringValue());
+    }
+
+    @Test
+    void openApiDocumentDescribesThePaymentEndpoints() throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> response = client.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v3/api-docs"))
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString()
+        );
+
+        assertEquals(200, response.statusCode());
+        JsonNode document = objectMapper.readTree(response.body());
+        assertEquals("Fee Calculator API", document.required("info").required("title").stringValue());
+        assertNotNull(document.required("paths").get("/api/payments"));
+        assertNotNull(document.required("paths").get("/api/payments/{reference}"));
+        assertNotNull(document.required("paths").get("/api/payments/options"));
     }
 
     private PaymentResponse readPaymentResponse(HttpResponse<String> response) {
