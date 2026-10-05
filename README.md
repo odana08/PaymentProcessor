@@ -2,15 +2,6 @@
 
 Spring Boot REST API for processing payments and calculating fees.
 
-## Requirements
-
-- JDK 26
-- Maven 3.6.3 or newer
-- Docker with the Compose plugin
-- curl and Python 3 for `scripts/api-test.sh`
-
-Java 26 is the current project target. It is not an LTS release, so the target should be reviewed before a production deployment.
-
 ## Stack
 
 - Spring Boot 4.1.1
@@ -51,105 +42,6 @@ PaymentProcessor
 
 The email and SMS senders currently write to standard output. They are placeholders for real notification integrations.
 
-## Run locally
-
-Clone the repository and prepare the local environment:
-
-```bash
-git clone git@gitlab.progressoft.io:ps.omar.dana/paymentprocessor.git FeeCalculator
-cd FeeCalculator
-cp .env.example .env
-```
-
-### Run with Docker
-
-Build the application image and start it with MySQL:
-
-```bash
-docker compose up --build -d
-docker compose ps
-docker compose logs -f app
-```
-
-When the application has started, verify the API:
-
-```bash
-curl http://localhost:8080/api/payments/options
-```
-
-The built image is named `fee-calculator:local`. Stop the containers without deleting the MySQL volume:
-
-```bash
-docker compose down
-```
-
-### Run Spring Boot directly
-
-Make sure `JAVA_HOME` points to JDK 26:
-
-```bash
-export JAVA_HOME=/path/to/jdk-26
-export PATH="$JAVA_HOME/bin:$PATH"
-
-java -version
-mvn -version
-```
-
-Start MySQL:
-
-```bash
-docker compose up -d mysql
-docker compose ps
-docker compose logs --tail=50 mysql
-```
-
-Load the application variables and start Spring Boot:
-
-```bash
-set -a
-. ./.env
-set +a
-
-SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
-```
-
-The API listens on `http://localhost:8080`.
-
-Interactive Swagger UI is available at:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
-The generated OpenAPI JSON document is available at:
-
-```text
-http://localhost:8080/v3/api-docs
-```
-
-To build and run the JAR:
-
-```bash
-mvn clean package
-SPRING_PROFILES_ACTIVE=dev java -jar target/fee-calculator-1.0-SNAPSHOT.jar
-```
-
-## Configuration
-
-| Variable | Default |
-| --- | --- |
-| `DB_URL` | `jdbc:mysql://localhost:3306/fee_calculator?serverTimezone=UTC` |
-| `DB_USERNAME` | `fee_app` |
-| `DB_PASSWORD` | `fee_app_password` |
-| `MYSQL_ROOT_PASSWORD` | `local_root_password` |
-| `MYSQL_DATABASE` | `fee_calculator` |
-| `MYSQL_USER` | `fee_app` |
-| `MYSQL_PASSWORD` | `fee_app_password` |
-| `MYSQL_PORT` | `3306` |
-
-The values in `.env.example` are for local development only. `.env` is ignored by Git.
-
-The `dev` profile logs Hibernate SQL and JDBC bind values. Do not enable bind-value logging in production.
 
 ## API
 
@@ -276,47 +168,4 @@ The channel table has a foreign key to `payments`, an `ON DELETE CASCADE`, and a
 
 Hibernate runs with `ddl-auto=validate`; schema changes belong in new Flyway migrations under `src/main/resources/db/migration`.
 
-Inspect local rows with:
-
-```bash
-docker compose exec mysql sh -lc \
-  'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" \
-  -e "SELECT reference, payment_type, amount_in_cents, currency, status, fee_in_cents, version FROM payments;"'
-```
-
-## Docker data
-
-MySQL stores its files in the `mysql_data` named volume.
-
-```bash
-docker compose down
-docker compose up -d mysql
-```
-
-The commands above recreate the container without deleting its data. To remove the local database as well:
-
-```bash
-docker compose down -v
-```
-
-## Tests
-
-Run the Maven suite:
-
-```bash
-mvn test
-```
-
-The test profile uses H2 in MySQL compatibility mode and applies the same Flyway migration. The suite includes unit, MockMvc, repository, service integration, and random-port HTTP tests.
-
-With the application running, exercise the API using:
-
-```bash
-./scripts/api-test.sh
-```
-
-Set `API_BASE_URL` to test another host or port:
-
-```bash
-API_BASE_URL=http://localhost:9090 ./scripts/api-test.sh
-```
+]
